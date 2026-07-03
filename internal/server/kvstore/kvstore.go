@@ -25,8 +25,13 @@ type kvStore struct {
 }
 
 func New() (Store, error) {
-
-	return kvStore{}, nil
+	store, err := ConnectFileStore("./data/")
+	if err != nil {
+		return nil, err
+	}
+	return kvStore{
+		store: store,
+	}, nil
 
 }
 
