@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/anvitha0403/golog/internal/server"
@@ -10,5 +9,5 @@ import (
 func main() {
 	srv := server.NewHTTPServer(":8080")
 	log.Fatal(srv.ListenAndServe())
-	fmt.Print("dfdf")
+
 }

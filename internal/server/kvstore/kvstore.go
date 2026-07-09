@@ -24,8 +24,8 @@ type kvStore struct {
 	store Store
 }
 
-func New() (Store, error) {
-	store, err := ConnectFileStore("./data/")
+func New(dataDir string) (Store, error) {
+	store, err := ConnectFileStore(dataDir)
 	if err != nil {
 		return nil, err
 	}

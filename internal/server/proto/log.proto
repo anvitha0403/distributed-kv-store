@@ -2,6 +2,33 @@ syntax = "proto3";
 package log.v1;
 option go_package = "internal/server/api/v1";
 message Record {
-bytes value = 1;
-uint64 offset = 2;
+string operation = 1;
+KVPair data = 2;
+}
+
+message KVPair {
+    string key=1;
+    string value=2;
+}
+
+
+
+message Log {
+  bytes value = 1;
+  uint64 offset = 2;
+  uint64 term = 3;
+  uint32 type = 4;
+}
+
+// START: get_servers
+message GetServersRequest {}
+
+message GetServersResponse {
+  repeated Server servers = 1;
+}
+
+message Server {
+  string id = 1;
+  string rpc_addr = 2;
+  bool is_leader = 3;
 }

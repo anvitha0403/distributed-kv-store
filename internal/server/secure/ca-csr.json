@@ -1,0 +1,14 @@
+{
+  "CN": "My default CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "IN",
+      "ST": "Karnataka",
+      "L": "Bengaluru"
+    }
+  ]
+}
