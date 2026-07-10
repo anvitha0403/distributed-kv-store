@@ -1,0 +1,19 @@
+{
+    "CN": "client",
+    "hosts": [
+        ""
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+    {
+      "C": "IN",
+      "ST": "Karnataka",
+      "L": "Bengaluru",
+      "O": "client orgs",
+      "OU": "go department"
+    }
+    ]
+}
