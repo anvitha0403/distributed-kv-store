@@ -4,61 +4,64 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/anvitha0403/golog/internal/server/kvstore"
 	"github.com/gorilla/mux"
 )
 
+type keyValue struct {
+	Key   string
+	Value string
+}
 type httpServer struct {
-	Log *Log
+	store kvstore.Store
 }
 
-func newHTTPServer() *httpServer {
+func newHTTPServer() (*httpServer, error) {
+	store, err := kvstore.ConnectFileStore(".")
+	if err != nil {
+		return nil, err
+	}
+
 	return &httpServer{
-		Log: NewLog(),
-	}
+		store: store,
+	}, nil
 }
 
-type ProduceRequest struct {
-	Record Record `json:"record"`
-}
-type ProduceResponse struct {
-	Offset uint64 `json:"offset"`
-}
-type ConsumeRequest struct {
-	Offset uint64 `json:"offset"`
-}
-type ConsumeResponse struct {
-	Record Record `json:"record"`
-}
-
-func (s *httpServer) handleProduce(w http.ResponseWriter, r *http.Request) {
-	var req ProduceRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+func (s *httpServer) putHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	off, err := s.Log.Append(req.Record)
+	var pair keyValue
+	if err := json.NewDecoder(r.Body).Decode(&pair); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	op, err := s.store.Put(pair.Key, pair.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	res := ProduceResponse{Offset: off}
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if op == kvstore.OPERATION_PUT_UPDATE {
+		w.WriteHeader(http.StatusOK) 
+
+	} else {
+		w.WriteHeader(http.StatusCreated)
+
 	}
+
 }
 
-func (s *httpServer) handleConsume(w http.ResponseWriter, r *http.Request) {
-	var req ConsumeRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+func (s *httpServer) getHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	record, err := s.Log.Read(req.Offset)
-	if err == ErrOffsetNotFound {
+	key := r.URL.Query().Get("key")
+	value, err := s.store.Get(key)
+
+	if err == kvstore.ErrKeyDoesntExist {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -67,22 +70,58 @@ func (s *httpServer) handleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := ConsumeResponse{Record: record}
+	res := keyValue{Key: key, Value: value}
+
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
+func (s *httpServer) deleteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	key := r.URL.Query().Get("key")
+	err := s.store.Del(key)
 
-func NewHTTPServer(addr string) *http.Server {
-	httpsrv := newHTTPServer()
+	if err == kvstore.ErrKeyDoesntExist {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK) 
+	
+}
+
+func NewHTTPServer(addr string) (*http.Server, error) {
+	httpsrv, err := newHTTPServer()
+	if err != nil {
+		return nil, err
+	}
 	r := mux.NewRouter()
 
-	r.HandleFunc("/", httpsrv.handleProduce).Methods("POST")
-	r.HandleFunc("/", httpsrv.handleConsume).Methods("GET")
+	r.HandleFunc("/kv", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			httpsrv.putHandler(w, r)
+		case http.MethodGet:
+			httpsrv.getHandler(w, r)
+		case http.MethodDelete:
+			httpsrv.deleteHandler(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	http.ListenAndServe(":8080", nil)
+
 	return &http.Server{
 		Addr:    addr,
 		Handler: r,
-	}
+	}, nil
 }

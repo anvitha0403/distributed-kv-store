@@ -1,13 +1,15 @@
 package kvstore
 
 import (
-	"bufio"
+	"encoding/binary"
 	"io"
 	"os"
+
+	pb "github.com/anvitha0403/golog/internal/server/api/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type FileIterator struct {
-	scanner    *bufio.Scanner
 	curOffset  int64
 	openedfile *os.File
 }
@@ -17,9 +19,7 @@ func newFileIterator(openedfile *os.File, offset int64) (*FileIterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	scanner := bufio.NewScanner(openedfile)
 	fileIterator := &FileIterator{
-		scanner:    scanner,
 		curOffset:  offset,
 		openedfile: openedfile,
 	}
@@ -27,16 +27,37 @@ func newFileIterator(openedfile *os.File, offset int64) (*FileIterator, error) {
 }
 
 func (fi *FileIterator) HasNext() bool {
-	return fi.scanner.Scan()
+	// Peek length prefix
+	buf := make([]byte, 4)
+	n, err := fi.openedfile.Read(buf)
+	if err != nil || n < 4 {
+		return false
+	}
+	// Reset back so Get can read properly
+	fi.openedfile.Seek(fi.curOffset, io.SeekStart)
+	return true
 }
 
 // Get returns the current record and its starting offset in the file.
-func (fi *FileIterator) Get() (record, int64) {
-	var data record
-	line := fi.scanner.Text()
-	data.FromString(line)
-	bytesRead := int64(len(line)) + 1          // +1 for the newline character
-	fi.curOffset += bytesRead                  // Update the current offset (including newline character)
-	startingOffset := fi.curOffset - bytesRead // Calculate the starting offset of the record
-	return data, startingOffset
+func (fi *FileIterator) Get() (*pb.Record, int64, error) {
+	startingOffset := fi.curOffset
+
+	lengthBuf := make([]byte, 4)
+	if _, err := fi.openedfile.Read(lengthBuf); err != nil {
+		return nil, startingOffset, err
+	}
+	length := binary.BigEndian.Uint32(lengthBuf)
+
+	dataBuf := make([]byte, length)
+	if _, err := fi.openedfile.Read(dataBuf); err != nil {
+		return nil, startingOffset, err
+	}
+
+	rec := &pb.Record{}
+	if err := proto.Unmarshal(dataBuf, rec); err != nil {
+		return nil, startingOffset, err
+	}
+
+	fi.curOffset += int64(4 + length)
+	return rec, startingOffset, nil
 }

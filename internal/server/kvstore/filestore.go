@@ -4,11 +4,17 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+
+	pb "github.com/anvitha0403/golog/internal/server/api/v1"
 )
 
 const (
 	OPERATION_PUT = "PUT"
 	OPERATION_DEL = "DEL"
+)
+const (
+	OPERATION_PUT_UPDATE = "UPDATE"
+	OPERATION_PUT_CREATE = "CREATE"
 )
 
 var (
@@ -50,19 +56,19 @@ func ConnectFileStore(path string) (Store, error) {
 // Put stores the given key-value pair in the file store.
 // It appends a new record with the specified key and value to the underlying database file.
 // Returns an error if writing or flushing the record fails.
-func (f *FileStore) Put(K, V string) error {
+func (f *FileStore) Put(K, V string) (string, error) {
 
-	dataToAppend := record{
-		operation: OPERATION_PUT,
-		data:      KVPair{key: K, val: V},
+	dataToAppend := pb.Record{
+		Operation: OPERATION_PUT,
+		Data:      &pb.KVPair{Key: K, Value: V},
 	}
 
-	startingOffset, err := f.dbFile.Append(dataToAppend)
+	startingOffset, err := f.dbFile.Append(&dataToAppend)
 	if err != nil {
-		return err
+		return "", err
 	}
-	f.index.Insert(K, startingOffset)
-	return nil
+	return f.index.Insert(K, startingOffset), nil
+
 }
 
 // Get returns the value for key K or an error if not found.
@@ -75,23 +81,26 @@ func (f *FileStore) Get(K string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return recordRead.GetValue(), nil
+	return recordRead.GetData().GetValue(), nil
 }
 
 // Del deletes the key-value pair associated with the given key K from the file store.
 // It appends a delete operation record to the underlying database file and flushes the changes.
 // Returns an error if writing or flushing the record fails.
 func (f *FileStore) Del(K string) error {
-	dataToAppend := record{
-		operation: OPERATION_DEL,
-		data:      KVPair{key: K},
+	dataToAppend := pb.Record{
+		Operation: OPERATION_DEL,
+		Data:      &pb.KVPair{Key: K},
 	}
-	_, err := f.dbFile.Append(dataToAppend)
+	_, err := f.dbFile.Append(&dataToAppend)
 	if err != nil {
 		return err
 	}
 	//delete from index as-well
-	f.index.Delete(K) // If the key doesn't exist, it's a no-op
+	if f.index.Delete(K) != nil {
+		return err
+
+	}
 
 	return nil
 }

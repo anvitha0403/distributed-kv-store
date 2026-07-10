@@ -41,7 +41,7 @@ func addNItemsToKVStore(store Store, N int) error {
 	for i := 0; i < N; i++ {
 		key := fmt.Sprintf("key-%d", i)
 		val := fmt.Sprintf("value-%d", i)
-		if err := store.Put(key, val); err != nil {
+		if _, err := store.Put(key, val); err != nil {
 			return fmt.Errorf("failed to put key %s: %w", key, err)
 		}
 	}

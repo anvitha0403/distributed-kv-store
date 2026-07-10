@@ -2,10 +2,13 @@ package kvstore
 
 import (
 	"bufio"
-	"errors"
+	"encoding/binary"
 	"io"
 	"os"
 	"path/filepath"
+
+	pb "github.com/anvitha0403/golog/internal/server/api/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -54,8 +57,8 @@ func (df *DataFile) GetIterator(offset int64) (*FileIterator, error) {
 }
 
 // Append writes the record to the file, flushes, and returns the starting byte offset.
-func (df *DataFile) Append(data record) (int64, error) {
-	writer, err := df.Writer()
+func (df *DataFile) Append(data *pb.Record) (int64, error) {
+	writer, offset, err := df.Writer()
 	if err != nil {
 		return 0, err
 	}
@@ -67,22 +70,22 @@ func (df *DataFile) Append(data record) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	startingOffset := df.bytesWrittenSoFar
+
 	df.bytesWrittenSoFar += bytesWritten
-	return startingOffset, nil
+	return offset, nil
 }
 
 // Writer returns a new DataFileWriter instance associated with the DataFile.
 // The DataFileWriter uses a buffered writer for efficient writing to the underlying file.
 // It returns the DataFileWriter and any error encountered during creation.
-func (df *DataFile) Writer() (*DataFileWriter, error) {
-	_, err := df.file.Seek(0, io.SeekEnd) // Ensure the file pointer is at the end of the file before writing new records
+func (df *DataFile) Writer() (*DataFileWriter, int64, error) {
+	offset, err := df.file.Seek(0, io.SeekEnd) // Ensure the file pointer is at the end of the file before writing new records
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	return &DataFileWriter{
 		writer: bufio.NewWriter(df.file),
-	}, nil
+	}, (offset), nil
 }
 
 // Close closes the underlying file associated with the DataFile, releasing any
@@ -95,22 +98,26 @@ func (df *DataFile) Close() error {
 // ReadRecordAt reads a single record (one line) starting at the given byte offset,
 // parses it with record.FromString, and returns it. The file pointer is restored to
 // the start. Returns an error if seeking, scanning, parsing fails, or no record is found.
-func (df *DataFile) ReadRecordAt(offset int64) (*record, error) {
-	_, err := df.file.Seek(int64(offset), io.SeekStart)
+func (df *DataFile) ReadRecordAt(offset int64) (*pb.Record, error) {
+	_, err := df.file.Seek(offset, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
-	defer df.file.Seek(0, io.SeekStart) // Reset the file pointer to the start after reading
 
-	scanner := bufio.NewScanner(df.file)
-	if scanner.Scan() {
-		line := scanner.Text()
-		rec := new(record)
-		rec.FromString(line)
-		return rec, nil
+	lengthBuf := make([]byte, 4)
+	if _, err := df.file.Read(lengthBuf); err != nil {
+		return nil, err
 	}
-	if scanner.Err() == nil { // If no error but no lines were read, return nil
-		return nil, errors.New("no record found at the specified offset")
+	length := binary.BigEndian.Uint32(lengthBuf)
+
+	dataBuf := make([]byte, length)
+	if _, err := df.file.Read(dataBuf); err != nil {
+		return nil, err
 	}
-	return nil, scanner.Err()
+
+	rec := &pb.Record{}
+	if err := proto.Unmarshal(dataBuf, rec); err != nil {
+		return nil, err
+	}
+	return rec, nil
 }
