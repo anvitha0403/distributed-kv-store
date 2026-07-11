@@ -7,6 +7,9 @@ import (
 	pb "github.com/anvitha0403/golog/internal/server/api/v1"
 	"github.com/anvitha0403/golog/internal/server/auth"
 	"github.com/anvitha0403/golog/internal/server/kvstore"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -15,8 +18,6 @@ import (
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,9 +36,6 @@ type Config struct {
 
 const (
 	objectWildcard = "*"
-	getAction      = "GET"
-	setAction      = "SET"
-	delAction      = "DEL"
 )
 
 type grpcServer struct {
@@ -57,7 +55,13 @@ func newgrpcServer(config *Config) (*grpcServer, error) {
 }
 
 func (s *grpcServer) Put(ctx context.Context, pair *pb.KVPair) (*pb.Response, error) {
-
+	if err := s.Authorizer.Authorize(
+		subject(ctx),
+		objectWildcard,
+		kvstore.OPERATION_PUT,
+	); err != nil {
+		return nil, err
+	}
 	op, err := s.Store.Put(pair.Key, pair.Value)
 	if err != nil {
 
@@ -68,16 +72,31 @@ func (s *grpcServer) Put(ctx context.Context, pair *pb.KVPair) (*pb.Response, er
 }
 
 func (s *grpcServer) Get(ctx context.Context, pair *pb.KVPair) (*pb.Response, error) {
-
+	if err := s.Authorizer.Authorize(
+		subject(ctx),
+		objectWildcard,
+		kvstore.OPERATION_GET,
+	); err != nil {
+		return nil, err
+	}
 	value, err := s.Store.Get(pair.Key)
 	if err != nil {
+		if err == kvstore.ErrKeyDoesntExist {
+			return nil, &pb.ErrKeyDoesntExist{}
+		}
 		return nil, err
 	}
 	return &pb.Response{Value: value}, nil
 }
 
 func (s *grpcServer) Delete(ctx context.Context, pair *pb.KVPair) (*pb.Empty, error) {
-
+	if err := s.Authorizer.Authorize(
+		subject(ctx),
+		objectWildcard,
+		kvstore.OPERATION_DEL,
+	); err != nil {
+		return nil, err
+	}
 	err := s.Store.Del(pair.Key)
 	if err != nil {
 		if err == kvstore.ErrKeyDoesntExist {
@@ -105,7 +124,6 @@ func NewGRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (
 			},
 		),
 	}
-	// END: logger
 
 	// START: metrics_traces
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
