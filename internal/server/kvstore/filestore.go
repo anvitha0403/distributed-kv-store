@@ -97,7 +97,9 @@ func (f *FileStore) Del(K string) error {
 		return err
 	}
 	//delete from index as-well
-	if f.index.Delete(K) != nil {
+
+	err = f.index.Delete(K)
+	if err != nil {
 		return err
 
 	}

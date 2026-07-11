@@ -37,7 +37,7 @@ func (hi *hashIndex) Insert(key string, offset int64) string {
 		}
 	}
 	hi.index[pos] = append(hi.index[pos], keyOffset{Key: key, Offset: offset})
-	
+
 	return OPERATION_PUT_CREATE
 }
 
@@ -78,6 +78,7 @@ func (hi *hashIndex) Delete(key string) error {
 	if bucket == nil {
 		return ErrKeyDoesntExist
 	}
+
 	for i, ko := range bucket {
 		if ko.Key == key {
 			bucket[i] = bucket[len(bucket)-1]
