@@ -11,6 +11,7 @@ import (
 const (
 	OPERATION_PUT = "PUT"
 	OPERATION_DEL = "DEL"
+	OPERATION_GET = "GET"
 )
 const (
 	OPERATION_PUT_UPDATE = "UPDATE"

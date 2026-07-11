@@ -11,7 +11,7 @@ type ErrKeyDoesntExist struct {
 
 func (e *ErrKeyDoesntExist) GRPCStatus() *status.Status {
 	st := status.New(
-		404,
+		5,
 		"key doesnt exist",
 	)
 	return st
@@ -30,7 +30,7 @@ func (e *InternalServerError) Message(msg string) {
 }
 func (e *InternalServerError) GRPCStatus() *status.Status {
 	st := status.New(
-		500,
+		2,
 		fmt.Sprintf("InternalServerError: %s", e.msg),
 	)
 

@@ -83,7 +83,8 @@ func (hi *hashIndex) Delete(key string) error {
 		if ko.Key == key {
 			bucket[i] = bucket[len(bucket)-1]
 			hi.index[pos] = bucket[:len(bucket)-1]
-
+			
+			return nil
 		}
 	}
 	return ErrKeyDoesntExist
