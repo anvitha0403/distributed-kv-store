@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 
 	pb "github.com/anvitha0403/golog/internal/server/api/v1"
 )
@@ -23,6 +24,8 @@ var (
 )
 
 type FileStore struct {
+	mu     sync.Mutex
+	config Config
 	dbFile *DataFile
 	index  *hashIndex
 }
@@ -31,7 +34,7 @@ type FileStore struct {
 // It ensures that the directory for the file exists, creating it if necessary.
 // If the directory cannot be created or the data file cannot be opened, an error is returned.
 // On success, it returns a Store backed by the file at the given path.
-func ConnectFileStore(path string) (Store, error) {
+func ConnectFileStore(path string) (*FileStore, error) {
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return nil, err
@@ -57,28 +60,45 @@ func ConnectFileStore(path string) (Store, error) {
 // Put stores the given key-value pair in the file store.
 // It appends a new record with the specified key and value to the underlying database file.
 // Returns an error if writing or flushing the record fails.
-func (f *FileStore) Put(K, V string) (string, error) {
+func (store *FileStore) Put(K, V string) (string, error) {
 
 	dataToAppend := pb.Record{
 		Operation: OPERATION_PUT,
 		Data:      &pb.KVPair{Key: K, Value: V},
 	}
 
-	startingOffset, err := f.dbFile.Append(&dataToAppend)
+	startingOffset, err := store.dbFile.Append(&dataToAppend)
 	if err != nil {
 		return "", err
 	}
-	return f.index.Insert(K, startingOffset), nil
+	return store.index.Insert(K, startingOffset), nil
+
+}
+
+func (store *FileStore) Reset() error {
+	if store.dbFile != nil {
+		store.dbFile.Close()
+	}
+	// truncate the file to start fresh
+	f, err := os.Create(store.dbFile.fullpath)
+	if err != nil {
+		return err
+	}
+	store.dbFile.file = f
+	store.dbFile.bytesWrittenSoFar = 0
+
+	store.index.index = make([][]keyOffset, store.index.maxHash)
+	return nil
 
 }
 
 // Get returns the value for key K or an error if not found.
-func (f *FileStore) Get(K string) (string, error) {
-	offset, err := f.index.GetOffset(K)
+func (store *FileStore) Get(K string) (string, error) {
+	offset, err := store.index.GetOffset(K)
 	if err != nil {
 		return "", err
 	}
-	recordRead, err := f.dbFile.ReadRecordAt(offset)
+	recordRead, err := store.dbFile.ReadRecordAt(offset)
 	if err != nil {
 		return "", err
 	}
@@ -88,18 +108,18 @@ func (f *FileStore) Get(K string) (string, error) {
 // Del deletes the key-value pair associated with the given key K from the file store.
 // It appends a delete operation record to the underlying database file and flushes the changes.
 // Returns an error if writing or flushing the record fails.
-func (f *FileStore) Del(K string) error {
+func (store *FileStore) Del(K string) error {
 	dataToAppend := pb.Record{
 		Operation: OPERATION_DEL,
 		Data:      &pb.KVPair{Key: K},
 	}
-	_, err := f.dbFile.Append(&dataToAppend)
+	_, err := store.dbFile.Append(&dataToAppend)
 	if err != nil {
 		return err
 	}
 	//delete from index as-well
 
-	err = f.index.Delete(K)
+	err = store.index.Delete(K)
 	if err != nil {
 		return err
 
@@ -110,6 +130,6 @@ func (f *FileStore) Del(K string) error {
 
 // Close closes the underlying database file associated with the FileStore.
 // It returns an error if the file cannot be closed.
-func (f *FileStore) Close() error {
-	return f.dbFile.Close()
+func (store *FileStore) Close() error {
+	return store.dbFile.Close()
 }

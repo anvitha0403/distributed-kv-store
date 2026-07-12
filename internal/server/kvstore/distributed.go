@@ -18,18 +18,20 @@ import (
 )
 
 type DistributedStore struct {
-	config Config
+	config *Config
 	store  *FileStore
 	raft   *raft.Raft
 }
 
-func NewDistributedStore(dataDir string) (*DistributedStore, error) {
+func NewDistributedStore(dataDir string,config *Config) (*DistributedStore, error) {
+	
 	db, err := ConnectFileStore(dataDir)
 	if err != nil {
 		return nil, err
 	}
 	l := &DistributedStore{
 		store: db,
+		config: config,
 	}
 
 	if err := l.setupRaft(dataDir); err != nil {

@@ -7,12 +7,11 @@
 package v1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -440,11 +439,13 @@ const file_store_proto_rawDesc = "" +
 	"\x06Server\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\brpc_addr\x18\x02 \x01(\tR\arpcAddr\x12\x1b\n" +
-	"\tis_leader\x18\x03 \x01(\bR\bisLeader2\x8b\x01\n" +
+	"\tis_leader\x18\x03 \x01(\bR\bisLeader2\xd2\x01\n" +
 	"\x0eKVStoreService\x12'\n" +
 	"\x03Put\x12\x0e.log.v1.KVPair\x1a\x10.log.v1.Response\x12'\n" +
 	"\x03Get\x12\x0e.log.v1.KVPair\x1a\x10.log.v1.Response\x12'\n" +
-	"\x06Delete\x12\x0e.log.v1.KVPair\x1a\r.log.v1.EmptyB\x18Z\x16internal/server/api/v1b\x06proto3"
+	"\x06Delete\x12\x0e.log.v1.KVPair\x1a\r.log.v1.Empty\x12E\n" +
+	"\n" +
+	"GetServers\x12\x19.log.v1.GetServersRequest\x1a\x1a.log.v1.GetServersResponse\"\x00B\x18Z\x16internal/server/api/v1b\x06proto3"
 
 var (
 	file_store_proto_rawDescOnce sync.Once
@@ -475,11 +476,13 @@ var file_store_proto_depIdxs = []int32{
 	0, // 2: log.v1.KVStoreService.Put:input_type -> log.v1.KVPair
 	0, // 3: log.v1.KVStoreService.Get:input_type -> log.v1.KVPair
 	0, // 4: log.v1.KVStoreService.Delete:input_type -> log.v1.KVPair
-	2, // 5: log.v1.KVStoreService.Put:output_type -> log.v1.Response
-	2, // 6: log.v1.KVStoreService.Get:output_type -> log.v1.Response
-	3, // 7: log.v1.KVStoreService.Delete:output_type -> log.v1.Empty
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
+	5, // 5: log.v1.KVStoreService.GetServers:input_type -> log.v1.GetServersRequest
+	2, // 6: log.v1.KVStoreService.Put:output_type -> log.v1.Response
+	2, // 7: log.v1.KVStoreService.Get:output_type -> log.v1.Response
+	3, // 8: log.v1.KVStoreService.Delete:output_type -> log.v1.Empty
+	6, // 9: log.v1.KVStoreService.GetServers:output_type -> log.v1.GetServersResponse
+	6, // [6:10] is the sub-list for method output_type
+	2, // [2:6] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name

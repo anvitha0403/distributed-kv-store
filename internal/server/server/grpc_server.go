@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -26,13 +26,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// END: config
 // START: config
 type Config struct {
-	Store      kvstore.Store
-	Authorizer auth.Authorizer
+	Store       kvstore.Store
+	Authorizer  *auth.Authorizer
+	GetServerer GetServerer
 }
 
-// END: config
+type GetServerer interface {
+	GetServers() ([]*pb.Server, error)
+}
 
 const (
 	objectWildcard = "*"
@@ -48,7 +52,7 @@ func newgrpcServer(config *Config) (*grpcServer, error) {
 	return &grpcServer{
 		Config: &Config{
 			Store:      config.Store,
-			Authorizer: auth.Authorizer{},
+			Authorizer: &auth.Authorizer{},
 		},
 	}, nil
 

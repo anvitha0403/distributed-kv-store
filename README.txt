@@ -48,3 +48,11 @@ curl -X PUT http://localhost:8080/kv      -H "Content-Type: application/json"   
 
  Standard gRPC Status CodesgRPC CodeNameTypical HTTP MatchCommon Cause / Usage0OK200 OKThe operation completed successfully.1CANCELLED499 Client ClosedThe client explicitly cancelled the request.2UNKNOWN500 Internal ErrorServer application crashed or threw an unhandled exception.3INVALID_ARGUMENT400 Bad RequestClient passed bad input, like failing validation.4DEADLINE_EXCEEDED504 Gateway TimeoutThe operation timed out before receiving a response.5NOT_FOUND404 Not FoundThe requested entity or resource was not found.6ALREADY_EXISTS409 ConflictAttempted to create an entity that is already present.7PERMISSION_DENIED403 ForbiddenClient lacks permissions for this specific action.8RESOURCE_EXHAUSTED429 Too Many RequestsRate limits hit or server has run out of disk space.9FAILED_PRECONDITION400 Bad RequestSystem state prevents execution (e.g., deleting a non-empty folder).10ABORTED409 ConflictConcurrency issues, like transaction aborts.11OUT_OF_RANGE400 Bad RequestOperation attempted past valid range (e.g., reading past EOF).12UNIMPLEMENTED501 Not ImplementedMethod not recognized or not enabled on the server.13INTERNAL500 Internal ErrorCritical internal framework failure or broken system invariant.14UNAVAILABLE503 Service UnavailableServer shutting down or connection dropped before processing.15DATA_LOSS500 Internal ErrorUnrecoverable data corruption or loss.16UNAUTHENTICATED401 UnauthorizedRequest lacks valid authentication credentials.
  
+
+ An interface value in Go is actually a two‑word struct under the hood:
+
+A pointer to the type information (what concrete type is stored).
+
+A pointer to the actual data (the value itself).
+
+👉 So: passing a struct to an interface is pass by value (copy of the struct), while passing a struct pointer to an interface is pass by reference (the interface holds the pointer).
