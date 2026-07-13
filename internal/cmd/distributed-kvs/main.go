@@ -23,7 +23,6 @@ func main() {
 		PreRunE: cli.setupConfig,
 		RunE:    cli.run,
 	}
-	// END_HIGHLIGHT
 
 	if err := setupFlags(cmd); err != nil {
 		log.Fatal(err)
@@ -60,7 +59,7 @@ func setupFlags(cmd *cobra.Command) error {
 
 	cmd.Flags().String("config-file", "", "Path to config file.")
 
-	dataDir := path.Join(os.TempDir(), "proglog")
+	dataDir := path.Join(os.TempDir(), "distributed_kvstore")
 	cmd.Flags().String("data-dir",
 		dataDir,
 		"Directory to store log and Raft data.")

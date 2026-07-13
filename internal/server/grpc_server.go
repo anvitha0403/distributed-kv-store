@@ -13,15 +13,16 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
@@ -144,25 +145,30 @@ func NewGRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (
 				// START_HIGHLIGHT
 				grpc_ctxtags.StreamServerInterceptor(),
 				grpc_zap.StreamServerInterceptor(logger, zapOpts...),
-				// END_HIGHLIGHT
+
 				grpc_auth.StreamServerInterceptor(authenticate),
 			)), grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			// START_HIGHLIGHT
 			grpc_ctxtags.UnaryServerInterceptor(),
 			grpc_zap.UnaryServerInterceptor(logger, zapOpts...),
-			// END_HIGHLIGHT
+
 			grpc_auth.UnaryServerInterceptor(authenticate),
 		)),
 		// START_HIGHLIGHT
 		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
-		// END_HIGHLIGHT
 	)
+
 	// END: grpc_opts
 	gsrv := grpc.NewServer(grpcOpts...)
 	srv, err := newgrpcServer(config)
 	if err != nil {
 		return nil, err
 	}
+	// START_HIGHLIGHT
+	hsrv := health.NewServer()
+	hsrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(gsrv, hsrv)
+
 	pb.RegisterKVStoreServiceServer(gsrv, srv)
 	return gsrv, nil
 }

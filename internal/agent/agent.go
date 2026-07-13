@@ -70,7 +70,7 @@ func New(config Config, store *kvstore.DistributedStore) (*Agent, error) {
 	setup := []func() error{
 		a.setupLogger,
 		a.setupMux,
-		// END_HIGHLIGHT
+
 		a.setupStore,
 		a.setupServer,
 		a.setupMembership,
@@ -78,7 +78,7 @@ func New(config Config, store *kvstore.DistributedStore) (*Agent, error) {
 	for _, fn := range setup {
 		if err := fn(); err != nil {
 			return nil, err
-		}
+		} 
 	}
 	go a.serve()
 	return a, nil

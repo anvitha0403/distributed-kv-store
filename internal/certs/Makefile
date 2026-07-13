@@ -1,4 +1,4 @@
-CONFIG_PATH := $(CURDIR)/.proglog/
+CONFIG_PATH := $(CURDIR)/.distributed_kvstore/
 
 .PHONY: init
 init:
