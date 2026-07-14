@@ -61,10 +61,9 @@ type Agent struct {
 	shutdownLock sync.Mutex
 }
 
-func New(config Config, store *kvstore.DistributedStore) (*Agent, error) {
+func New(config Config) (*Agent, error) {
 	a := &Agent{
 		Config:    config,
-		store:     store,
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
@@ -78,7 +77,7 @@ func New(config Config, store *kvstore.DistributedStore) (*Agent, error) {
 	for _, fn := range setup {
 		if err := fn(); err != nil {
 			return nil, err
-		} 
+		}
 	}
 	go a.serve()
 	return a, nil
@@ -89,21 +88,28 @@ func (a *Agent) setupLogger() error {
 	if err != nil {
 		return err
 	}
+	// Add caller info (file + line number)
+	logger = logger.WithOptions(zap.AddCaller())
 	zap.ReplaceGlobals(logger)
 	return nil
 }
 
 func (a *Agent) setupMux() error {
-	addr, err := net.ResolveTCPAddr("tcp", a.Config.BindAddr)
-	if err != nil {
-		return err
-	}
-	rpcAddr := fmt.Sprintf(
-		"%s:%d",
-		addr.IP.String(),
-		a.Config.RPCPort,
-	)
+	rpcAddr := fmt.Sprintf("0.0.0.0:%d", a.Config.RPCPort)
 	ln, err := net.Listen("tcp", rpcAddr)
+	// addr, err := net.ResolveTCPAddr("tcp", a.Config.BindAddr)
+	// if err != nil {
+	// 	return err
+	// }
+	// rpcAddr := fmt.Sprintf(
+	// 	"%s:%d",
+	// 	addr.IP.String(),
+	// 	a.Config.RPCPort,
+	// )
+	// ln, err := net.Listen("tcp", rpcAddr)
+
+	// ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", a.Config.BindAddr, a.Config.RPCPort))
+
 	if err != nil {
 		return err
 	}
@@ -165,7 +171,14 @@ func (a *Agent) setupServer() error {
 	if err != nil {
 		return err
 	}
-	grpcLn := a.mux.Match(cmux.Any())
+	// grpcLn := a.mux.Match(cmux.Any())
+	// go func() {
+	// 	if err := a.server.Serve(grpcLn); err != nil {
+	// 		_ = a.Shutdown()
+	// 	}
+	// }()
+
+	grpcLn := a.mux.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 	go func() {
 		if err := a.server.Serve(grpcLn); err != nil {
 			_ = a.Shutdown()

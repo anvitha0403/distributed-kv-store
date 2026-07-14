@@ -32,7 +32,7 @@ func configFile(filename string) string {
 	if err != nil {
 		panic(err)
 	}
-	return filepath.Join(homeDir, ".distributed_kvstore", filename)
+	return filepath.Join(homeDir, ".kvstore", filename)
 }
 
 // END: begin

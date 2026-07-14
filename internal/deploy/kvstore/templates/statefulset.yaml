@@ -1,0 +1,96 @@
+# START: initial
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kvstore.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "kvstore.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{ include "kvstore.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "kvstore.fullname" . }}
+  replicas: {{ .Values.replicas }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Delete
+
+  template:
+    metadata:
+      name: {{ include "kvstore.fullname" . }}
+      labels: {{ include "kvstore.labels" . | nindent 8 }}
+    spec:
+      # initContainers...
+      # END: initial
+      # START: initial_containers
+      initContainers:
+      - name: clean-data
+        image: busybox
+        command: ["sh", "-c", "rm -rf /var/run/kvstore/*"]
+      - name: {{ include "kvstore.fullname" . }}-config-init
+        image: busybox
+        imagePullPolicy: Always
+        command:          
+          - /bin/sh
+          - -c
+          - |-
+            ID=$(echo $HOSTNAME | rev | cut -d- -f1 | rev)
+            cat > /var/run/kvstore/config.yaml <<EOD
+            data-dir: /var/run/kvstore
+            rpc-port: {{ .Values.rpcPort }}
+            bind-addr: "$HOSTNAME.kvstore.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.serfPort }}"
+            $([ $ID != 0 ] && echo "start-join-addrs: kvstore-0.kvstore.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.serfPort }}")
+            bootstrap: $([ $ID = 0 ] && echo true || echo false)
+            EOD
+
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/run/kvstore
+        # START: initial
+      # END: initial_containers
+      # START: initial
+      # containers...
+      # END: initial
+      # START: containers
+      containers:
+      - name: {{ include "kvstore.fullname" . }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        ports:
+        - containerPort: {{ .Values.rpcPort }}
+          name: rpc
+        - containerPort: {{ .Values.serfPort }}
+          name: serf
+        args:
+          - --config-file=/var/run/kvstore/config.yaml
+        # END: initial
+        # probes...
+        # END: containers
+        # START: probes
+
+        # readinessProbe:
+        #   exec:
+        #     command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+        #   initialDelaySeconds: 5
+        # livenessProbe:
+        #   exec:
+        #     command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+        #   initialDelaySeconds: 10
+
+
+
+        # END: probes
+        # START: containers
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/run/kvstore
+      # END: containers
+      # START: initial
+
+
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: {{ .Values.storage }}

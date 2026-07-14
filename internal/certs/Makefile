@@ -1,4 +1,4 @@
-CONFIG_PATH := $(CURDIR)/.distributed_kvstore/
+CONFIG_PATH := $(CURDIR)/.kvstore/
 
 .PHONY: init
 init:

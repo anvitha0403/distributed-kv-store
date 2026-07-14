@@ -23,14 +23,14 @@ type DistributedStore struct {
 	raft   *raft.Raft
 }
 
-func NewDistributedStore(dataDir string,config *Config) (*DistributedStore, error) {
-	
+func NewDistributedStore(dataDir string, config *Config) (*DistributedStore, error) {
+
 	db, err := ConnectFileStore(dataDir)
 	if err != nil {
 		return nil, err
 	}
 	l := &DistributedStore{
-		store: db,
+		store:  db,
 		config: config,
 	}
 
@@ -43,30 +43,30 @@ func NewDistributedStore(dataDir string,config *Config) (*DistributedStore, erro
 func (db *DistributedStore) setupRaft(dataDir string) error {
 	fsm := &fsm{db: db.store}
 
-	logDir := filepath.Join(dataDir, "raft", "log")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	// Ensure directories exist
+	if err := os.MkdirAll(filepath.Join(dataDir, "raft"), 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(dataDir, "raft", "snapshots"), 0755); err != nil {
 		return err
 	}
 
-	logStore, err := raftboltdb.NewBoltStore(
-		filepath.Join(dataDir, "log", "stable"),
-	)
-
-	stableStore, err := raftboltdb.NewBoltStore(
-		filepath.Join(dataDir, "raft", "stable"),
-	)
+	// Log store
+	logStore, err := raftboltdb.NewBoltStore(filepath.Join(dataDir, "raft", "log.db"))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create log store: %w", err)
 	}
 
-	retain := 1
-	snapshotStore, err := raft.NewFileSnapshotStore(
-		filepath.Join(dataDir, "raft"),
-		retain,
-		os.Stderr,
-	)
+	// Stable store
+	stableStore, err := raftboltdb.NewBoltStore(filepath.Join(dataDir, "raft", "stable.db"))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create stable store: %w", err)
+	}
+
+	// Snapshot store
+	snapshotStore, err := raft.NewFileSnapshotStore(filepath.Join(dataDir, "raft", "snapshots"), 1, os.Stderr)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot store: %w", err)
 	}
 
 	maxPool := 5
@@ -79,6 +79,7 @@ func (db *DistributedStore) setupRaft(dataDir string) error {
 	)
 
 	config := raft.DefaultConfig()
+
 	config.LocalID = db.config.Raft.LocalID
 	if db.config.Raft.HeartbeatTimeout != 0 {
 		config.HeartbeatTimeout = db.config.Raft.HeartbeatTimeout
@@ -92,6 +93,10 @@ func (db *DistributedStore) setupRaft(dataDir string) error {
 	if db.config.Raft.CommitTimeout != 0 {
 		config.CommitTimeout = db.config.Raft.CommitTimeout
 	}
+	config.HeartbeatTimeout = 5 * time.Second
+	config.ElectionTimeout = 10 * time.Second
+	config.LeaderLeaseTimeout = 5 * time.Second
+	config.CommitTimeout = 1 * time.Second
 
 	db.raft, err = raft.NewRaft(
 		config,
@@ -104,6 +109,7 @@ func (db *DistributedStore) setupRaft(dataDir string) error {
 	if err != nil {
 		return err
 	}
+
 	if db.config.Raft.Bootstrap {
 		config := raft.Configuration{
 			Servers: []raft.Server{{
@@ -111,9 +117,11 @@ func (db *DistributedStore) setupRaft(dataDir string) error {
 				Address: raft.ServerAddress(db.config.Raft.BindAddr),
 			}},
 		}
-		err = db.raft.BootstrapCluster(config).Error()
+		db.raft.BootstrapCluster(config).Error()
+
 	}
-	return err
+
+	return nil
 }
 
 func (f *DistributedStore) Del(K string) error {

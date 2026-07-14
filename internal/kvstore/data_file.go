@@ -36,7 +36,6 @@ type DataFile struct {
 //	error     - Error encountered during file opening or creation, or nil if successful.
 func NewDataFile(path string) (*DataFile, error) {
 	fullPath := filepath.Join(path, PRIMARY_FILENAME)
-
 	f, err := os.OpenFile(fullPath, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err

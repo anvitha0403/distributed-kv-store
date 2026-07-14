@@ -1,4 +1,4 @@
-package distributedkvs
+package main
 
 import (
 	"log"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/anvitha0403/golog/internal/server/agent"
 	"github.com/anvitha0403/golog/internal/server/config"
-	"github.com/anvitha0403/golog/internal/server/kvstore"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -59,14 +58,14 @@ func setupFlags(cmd *cobra.Command) error {
 
 	cmd.Flags().String("config-file", "", "Path to config file.")
 
-	dataDir := path.Join(os.TempDir(), "distributed_kvstore")
+	dataDir := path.Join(os.TempDir(), "kvstore")
 	cmd.Flags().String("data-dir",
 		dataDir,
 		"Directory to store log and Raft data.")
 	cmd.Flags().String("node-name", hostname, "Unique server ID.")
 
 	cmd.Flags().String("bind-addr",
-		"127.0.0.1:8401",
+		"0.0.0.0:8401",
 		"Address to bind Serf on.")
 	cmd.Flags().Int("rpc-port",
 		8400,
@@ -156,12 +155,7 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 
 // START: run
 func (c *cli) run(cmd *cobra.Command, args []string) error {
-	var err error
-	store, err := kvstore.NewDistributedStore(".", &kvstore.Config{})
-	if err != nil {
-		return err
-	}
-	agent, err := agent.New(c.cfg.Config, store)
+	agent, err := agent.New(c.cfg.Config)
 	if err != nil {
 		return err
 	}

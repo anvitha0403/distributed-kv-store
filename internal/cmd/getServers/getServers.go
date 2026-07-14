@@ -1,4 +1,4 @@
-package getservers
+package main
 
 import (
 	"context"
