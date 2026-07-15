@@ -172,6 +172,7 @@ func (a *Agent) setupServer() error {
 	}
 	grpcLn := a.mux.Match(cmux.Any())
 	go func() {
+		
 		if err := a.server.Serve(grpcLn); err != nil {
 			_ = a.Shutdown()
 		}

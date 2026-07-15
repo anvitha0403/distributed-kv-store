@@ -60,7 +60,7 @@ spec:
         - containerPort: {{ .Values.serfPort }}
           name: serf
         args:
-          - --config-file=/var/run/kvstore/config.yaml
+          # - --config-file=/var/run/kvstore/config.yaml
         # END: initial
         # probes...
         # END: containers

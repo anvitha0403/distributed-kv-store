@@ -56,3 +56,8 @@ A pointer to the type information (what concrete type is stored).
 A pointer to the actual data (the value itself).
 
 👉 So: passing a struct to an interface is pass by value (copy of the struct), while passing a struct pointer to an interface is pass by reference (the interface holds the pointer).
+
+
+
+
+apt-get update && apt-get install -y iproute2 net-tools
