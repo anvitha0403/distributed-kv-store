@@ -1,8 +1,8 @@
 # Default values for kvstore.
 image:
   repository: github.com/anvitha0403/distributed-kvstore
-  tag: 0.0.18
-  pullPolicy: IfNotPresent
+  tag: 0.0.4
+  pullPolicy: Always
 serfPort: 8401
 rpcPort: 8400
 replicas: 3

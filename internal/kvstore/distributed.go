@@ -93,11 +93,6 @@ func (db *DistributedStore) setupRaft(dataDir string) error {
 	if db.config.Raft.CommitTimeout != 0 {
 		config.CommitTimeout = db.config.Raft.CommitTimeout
 	}
-	config.HeartbeatTimeout = 5 * time.Second
-	config.ElectionTimeout = 10 * time.Second
-	config.LeaderLeaseTimeout = 5 * time.Second
-	config.CommitTimeout = 1 * time.Second
-
 	db.raft, err = raft.NewRaft(
 		config,
 		fsm,
