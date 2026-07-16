@@ -1,3 +1,5 @@
-p, root, *, get
-p, root, *, put
-p, root, *, del
+p, root, *, GET
+p, root, *, PUT
+p, root, *, DEL
+p, root, *, GETSERVERS
+

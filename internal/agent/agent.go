@@ -52,7 +52,7 @@ type Agent struct {
 	Config Config
 
 	mux        cmux.CMux
-	store      *kvstore.DistributedStore
+	store      kvstore.IDistributedStore
 	server     *grpc.Server
 	membership *discovery.Membership
 
@@ -156,9 +156,8 @@ func (a *Agent) setupServer() error {
 		a.Config.ACLPolicyFile,
 	)
 	serverConfig := &server.Config{
-		Store:       a.store,
-		Authorizer:  authorizer,
-		GetServerer: a.store,
+		Store:      a.store,
+		Authorizer: authorizer,
 	}
 	var opts []grpc.ServerOption
 	if a.Config.ServerTLSConfig != nil {
@@ -172,12 +171,11 @@ func (a *Agent) setupServer() error {
 	}
 	grpcLn := a.mux.Match(cmux.Any())
 	go func() {
-		
+
 		if err := a.server.Serve(grpcLn); err != nil {
 			_ = a.Shutdown()
 		}
 	}()
-
 
 	return err
 }

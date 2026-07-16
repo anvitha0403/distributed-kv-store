@@ -13,6 +13,23 @@ gencert:
 
 	cfssl gencert -ca=ca.pem \-ca-key=ca-key.pem \-config=ca-config.json \-profile=client \
 	client-csr.json | cfssljson -bare client
+
+	 cfssl gencert \
+	-ca=ca.pem \
+	-ca-key=ca-key.pem \
+	-config=ca-config.json \
+	-profile=client \
+	-cn="root" \
+	client-csr.json | cfssljson -bare root-client
+
+	cfssl gencert \
+	-ca=ca.pem \
+	-ca-key=ca-key.pem \
+	-config=ca-config.json \
+	-profile=client \
+	-cn="nobody" \
+	client-csr.json | cfssljson -bare nobody-client
+
 	mv *.pem *.csr $(CONFIG_PATH)
 .PHONY: test
 test:

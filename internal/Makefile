@@ -1,7 +1,7 @@
 # Makefile for distributed-kv-store
 
 IMAGE_REPO = github.com/anvitha0403/distributed-kvstore
-IMAGE_TAG ?= 0.0.4
+IMAGE_TAG ?= 0.0.10
 IMAGE = $(IMAGE_REPO):$(IMAGE_TAG)
 
 CHART_PATH = deploy/kvstore
@@ -74,7 +74,7 @@ debug-pod:
 		kubectl run -it debug --image=$(IMAGE) --rm --restart=Never -- sh
 
 debug-cat-config:
-		kubectl run -it debug --image=$(IMAGE) --rm --restart=Never -- cat /var/run/kvstore/config.yaml
+		kubectl run -it debug --image=$(IMAGE) --rm --restart=Never -- 	
 
 # -----------------------------
 # Curl tests
