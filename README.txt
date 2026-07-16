@@ -56,3 +56,15 @@ A pointer to the type information (what concrete type is stored).
 A pointer to the actual data (the value itself).
 
 👉 So: passing a struct to an interface is pass by value (copy of the struct), while passing a struct pointer to an interface is pass by reference (the interface holds the pointer).
+
+
+
+
+apt-get update && apt-get install -y iproute2 net-tools
+ go run main.go --config-file=/var/run/kvstore/config.yaml
+
+
+
+CONFIG_DIR=/src/certs/.kvstore go run getServers.go --addr kvstore.default.svc.cluster.local:8400
+
+go run main.go   --rpc-port=8400   --server-tls-ca-file=/src/certs/.kvstore/ca.pem   --server-tls-cert-file=/src/certs/.kvstore/server.pem   --server-tls-key-file=/src/certs/.kvstore/server-key.pem --bootstrap=true --bind-addr="kvstore-0.kvstore.default.svc.cluster.local:8401" --rpc-port=8400 --data-dir="/var/run/kvstore"

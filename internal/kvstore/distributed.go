@@ -23,6 +23,37 @@ type DistributedStore struct {
 	raft   *raft.Raft
 }
 
+// It provides basic functions to retrieve, insert and delete data by key.
+type IDistributedStore interface {
+
+	// Get retrieves a value associated with the given key.
+	// If the key doesn't exists then ErrKeyDoesntExist is thrown.
+	Get(K string) (string, error)
+
+	// Put inserts or updates the value of the given key.
+	// Returns an error if operation fails.
+	Put(K, V string) (string, error)
+
+	// Del removes the given key and its associated value from the storage engine.
+	// Returns error if operation fails.
+	Del(K string) error
+
+	GetServers() ([]Server, error)
+
+	Close() error
+
+	Join(id string, addr string) error
+	Leave(id string) error
+
+	WaitForLeader(timeout time.Duration) error
+}
+
+type Server struct {
+	Id       string
+	RpcAddr  string
+	IsLeader bool
+}
+
 func NewDistributedStore(dataDir string, config *Config) (*DistributedStore, error) {
 
 	db, err := ConnectFileStore(dataDir)
@@ -93,11 +124,6 @@ func (db *DistributedStore) setupRaft(dataDir string) error {
 	if db.config.Raft.CommitTimeout != 0 {
 		config.CommitTimeout = db.config.Raft.CommitTimeout
 	}
-	config.HeartbeatTimeout = 5 * time.Second
-	config.ElectionTimeout = 10 * time.Second
-	config.LeaderLeaseTimeout = 5 * time.Second
-	config.CommitTimeout = 1 * time.Second
-
 	db.raft, err = raft.NewRaft(
 		config,
 		fsm,
@@ -133,7 +159,7 @@ func (f *DistributedStore) Get(K string) (string, error) {
 	return f.store.Get(K)
 }
 func (f *DistributedStore) Put(K string, V string) (string, error) {
-	res, err := f.apply(&api.Record{Operation: OPERATION_PUT, Data: &api.KVPair{Key: K}})
+	res, err := f.apply(&api.Record{Operation: OPERATION_PUT, Data: &api.KVPair{Key: K,Value: V}})
 	return res.(string), err
 }
 
@@ -225,14 +251,14 @@ func (db *DistributedStore) Close() error {
 }
 
 // START: get_servers
-func (db *DistributedStore) GetServers() ([]*api.Server, error) {
+func (db *DistributedStore) GetServers() ([]Server, error) {
 	future := db.raft.GetConfiguration()
 	if err := future.Error(); err != nil {
 		return nil, err
 	}
-	var servers []*api.Server
+	var servers []Server
 	for _, server := range future.Configuration().Servers {
-		servers = append(servers, &api.Server{
+		servers = append(servers, Server{
 			Id:       string(server.ID),
 			RpcAddr:  string(server.Address),
 			IsLeader: db.raft.Leader() == server.Address,

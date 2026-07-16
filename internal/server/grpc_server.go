@@ -30,14 +30,12 @@ import (
 // END: config
 // START: config
 type Config struct {
-	Store       kvstore.Store
-	Authorizer  *auth.Authorizer
-	GetServerer GetServerer
+	Store      kvstore.IDistributedStore
+	Authorizer *auth.Authorizer
 }
-
-type GetServerer interface {
-	GetServers() ([]*pb.Server, error)
-}
+const (
+	OPERATION_GETSERVERS = "GETSERVERS"
+)
 
 const (
 	objectWildcard = "*"
@@ -49,67 +47,157 @@ type grpcServer struct {
 }
 
 func newgrpcServer(config *Config) (*grpcServer, error) {
-
 	return &grpcServer{
-		Config: &Config{
-			Store:      config.Store,
-			Authorizer: &auth.Authorizer{},
-		},
+		Config: config,
 	}, nil
+}
+
+// GetServers implements [v1.KVStoreServiceServer].
+func (s *grpcServer) GetServers(ctx context.Context, req *pb.GetServersRequest) (*pb.GetServersResponse, error) {
+	logger := grpc_zap.Extract(ctx)
+	logger.Info("Handling GetServers request")
+	if err := s.Authorizer.Authorize(
+		subject(ctx),
+		objectWildcard,
+		OPERATION_GETSERVERS,
+	); err != nil {
+		logger.Warn("Authorization failed for PUT",
+			zap.String("subject", subject(ctx)),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	servers, err := s.Store.GetServers()
+	if err != nil {
+		logger.Warn("getServers failed for ",
+			zap.String("subject", subject(ctx)),
+			zap.Error(err),
+		)
+	}
+
+	var pbservers []*pb.Server
+	for _, server := range servers {
+		pbservers = append(pbservers, &pb.Server{
+			Id:       string(server.Id),
+			RpcAddr:  string(server.RpcAddr),
+			IsLeader: server.IsLeader,
+		})
+	}
+	return &pb.GetServersResponse{Servers: pbservers}, nil
 
 }
 
 func (s *grpcServer) Put(ctx context.Context, pair *pb.KVPair) (*pb.Response, error) {
+	logger := grpc_zap.Extract(ctx)
+	logger.Info("Handling PUT request",
+		zap.String("key", pair.Key),
+		zap.String("value", pair.Value),
+	)
+
 	if err := s.Authorizer.Authorize(
 		subject(ctx),
 		objectWildcard,
 		kvstore.OPERATION_PUT,
 	); err != nil {
+		logger.Warn("Authorization failed for PUT",
+			zap.String("subject", subject(ctx)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
 	op, err := s.Store.Put(pair.Key, pair.Value)
 	if err != nil {
-
+		logger.Error("Store PUT failed",
+			zap.String("key", pair.Key),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
+	logger.Info("PUT successful",
+		zap.String("key", pair.Key),
+		zap.String("result", op),
+	)
 	return &pb.Response{Value: op}, nil
 }
 
 func (s *grpcServer) Get(ctx context.Context, pair *pb.KVPair) (*pb.Response, error) {
+	logger := grpc_zap.Extract(ctx)
+	logger.Info("Handling GET request",
+		zap.String("key", pair.Key),
+	)
+
 	if err := s.Authorizer.Authorize(
 		subject(ctx),
 		objectWildcard,
 		kvstore.OPERATION_GET,
 	); err != nil {
+		logger.Warn("Authorization failed for GET",
+			zap.String("subject", subject(ctx)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
 	value, err := s.Store.Get(pair.Key)
 	if err != nil {
 		if err == kvstore.ErrKeyDoesntExist {
+			logger.Warn("GET failed: key does not exist",
+				zap.String("key", pair.Key),
+			)
 			return nil, &pb.ErrKeyDoesntExist{}
 		}
+		logger.Error("Store GET failed",
+			zap.String("key", pair.Key),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
+	logger.Info("GET successful",
+		zap.String("key", pair.Key),
+		zap.String("value", value),
+	)
 	return &pb.Response{Value: value}, nil
 }
 
 func (s *grpcServer) Delete(ctx context.Context, pair *pb.KVPair) (*pb.Empty, error) {
+	logger := grpc_zap.Extract(ctx)
+	logger.Info("Handling DELETE request",
+		zap.String("key", pair.Key),
+	)
+
 	if err := s.Authorizer.Authorize(
 		subject(ctx),
 		objectWildcard,
 		kvstore.OPERATION_DEL,
 	); err != nil {
-		return nil, err
-	}
-	err := s.Store.Del(pair.Key)
-	if err != nil {
-		if err == kvstore.ErrKeyDoesntExist {
-			return nil, &pb.ErrKeyDoesntExist{}
-		}
+		logger.Warn("Authorization failed for DELETE",
+			zap.String("subject", subject(ctx)),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
+	err := s.Store.Del(pair.Key)
+	if err != nil {
+		if err == kvstore.ErrKeyDoesntExist {
+			logger.Warn("DELETE failed: key does not exist",
+				zap.String("key", pair.Key),
+			)
+			return nil, &pb.ErrKeyDoesntExist{}
+		}
+		logger.Error("Store DELETE failed",
+			zap.String("key", pair.Key),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
+	logger.Info("DELETE successful",
+		zap.String("key", pair.Key),
+	)
 	return &pb.Empty{}, nil
 }
 
@@ -134,6 +222,7 @@ func NewGRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	err := view.Register(ocgrpc.DefaultServerViews...)
 	if err != nil {
+		logger.Error("Failed to register OpenCensus views", zap.Error(err))
 		return nil, err
 	}
 	// END: metrics_traces
@@ -142,34 +231,30 @@ func NewGRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (
 	grpcOpts = append(grpcOpts,
 		grpc.StreamInterceptor(
 			grpc_middleware.ChainStreamServer(
-				// START_HIGHLIGHT
 				grpc_ctxtags.StreamServerInterceptor(),
 				grpc_zap.StreamServerInterceptor(logger, zapOpts...),
-
 				grpc_auth.StreamServerInterceptor(authenticate),
 			)), grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			// START_HIGHLIGHT
 			grpc_ctxtags.UnaryServerInterceptor(),
 			grpc_zap.UnaryServerInterceptor(logger, zapOpts...),
-
 			grpc_auth.UnaryServerInterceptor(authenticate),
 		)),
-		// START_HIGHLIGHT
 		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
 	)
 
-	// END: grpc_opts
 	gsrv := grpc.NewServer(grpcOpts...)
 	srv, err := newgrpcServer(config)
 	if err != nil {
+		logger.Error("Failed to create gRPC server", zap.Error(err))
 		return nil, err
 	}
-	// START_HIGHLIGHT
+
 	hsrv := health.NewServer()
 	hsrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthpb.RegisterHealthServer(gsrv, hsrv)
 
 	pb.RegisterKVStoreServiceServer(gsrv, srv)
+	logger.Info("gRPC server initialized and ready")
 	return gsrv, nil
 }
 
