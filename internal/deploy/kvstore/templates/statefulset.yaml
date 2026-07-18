@@ -38,10 +38,18 @@ spec:
             data-dir: /var/run/kvstore
             rpc-port: {{ .Values.rpcPort }}
             bind-addr: "$HOSTNAME.kvstore.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.serfPort }}"
+            server-tls-ca-file: "/src/certs/.kvstore/ca.pem"
+            server-tls-cert-file: "/src/certs/.kvstore/server.pem"
+            server-tls-key-file: "/src/certs/.kvstore/server-key.pem"
+            peer-tls-ca-file: "/src/certs/.kvstore/ca.pem"
+            peer-tls-cert-file: "/src/certs/.kvstore/server.pem"
+            peer-tls-key-file: "/src/certs/.kvstore/server-key.pem"
+            acl-model-file: "/src/auth/model.conf" 
+            acl-policy-file: "/src/auth/policy.csv"
+            service-name: kvstore.{{ .Release.Namespace }}.svc.cluster.local
             $([ $ID != 0 ] && echo "start-join-addrs: kvstore-0.kvstore.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.serfPort }}")
             bootstrap: $([ $ID = 0 ] && echo true || echo false)
             EOD
-
         volumeMounts:
         - name: datadir
           mountPath: /var/run/kvstore
@@ -60,7 +68,7 @@ spec:
         - containerPort: {{ .Values.serfPort }}
           name: serf
         args:
-          # - --config-file=/var/run/kvstore/config.yaml
+          - --config-file=/var/run/kvstore/config.yaml
         # END: initial
         # probes...
         # END: containers
@@ -68,12 +76,18 @@ spec:
 
         # readinessProbe:
         #   exec:
-        #     command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+        #     # command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+        #     command: ["/bin/grpc_health_probe", "-addr=localhost:8400", "-tls", "-tls-ca-cert=/src/certs/ca.pem"]
+
         #   initialDelaySeconds: 5
         # livenessProbe:
         #   exec:
-        #     command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+        #     # command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+        #     command: ["/bin/grpc_health_probe", "-addr=localhost:8400", "-tls", "-tls-ca-cert=/src/certs/ca.pem"]
+
         #   initialDelaySeconds: 10
+
+ 
 
 
 

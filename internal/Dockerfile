@@ -14,8 +14,8 @@ RUN go mod download
 # Then copy the rest
 COPY . .
 # Force Linux amd64 build
-RUN GOOS=linux GOARCH=amd64 go build -o /go/bin/distributed_kvs ./cmd/distributed-kvs && \
-    chmod +x /go/bin/distributed_kvs
+RUN GOOS=linux GOARCH=amd64 go build -o /bin/distributed_kvs ./cmd/distributed-kvs && \
+    chmod +x /bin/distributed_kvs
 
 # Add grpc_health_probe
 ARG GRPC_HEALTH_PROBE_VERSION=v0.3.2
@@ -25,5 +25,6 @@ RUN wget -qO /bin/grpc_health_probe \
 
 
 # COPY  /go/bin/distributed_kvs /bin/distributed_kvs
-# COPY  /go/bin/grpc_health_probe /bin/grpc_health_probe
-CMD ["sleep", "infinity"]
+
+# CMD ["sleep", "infinity"]
+ENTRYPOINT ["/bin/distributed_kvs"]

@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -159,34 +160,42 @@ func (f *DistributedStore) Get(K string) (string, error) {
 	return f.store.Get(K)
 }
 func (f *DistributedStore) Put(K string, V string) (string, error) {
-	res, err := f.apply(&api.Record{Operation: OPERATION_PUT, Data: &api.KVPair{Key: K,Value: V}})
+	res, err := f.apply(&api.Record{Operation: OPERATION_PUT, Data: &api.KVPair{Key: K, Value: V}})
 	return res.(string), err
 }
 
-func (db *DistributedStore) apply(req *api.Record) (
-	interface{},
-	error,
-) {
+func (db *DistributedStore) apply(req *api.Record) (interface{}, error) {
 	var buf bytes.Buffer
+
+	log.Printf("[apply] record=%s", req.String())
 
 	// Serialize
 	b, err := proto.Marshal(req)
 	if err != nil {
+		log.Printf("[apply] marshal error: %v", err)
 		return nil, err
 	}
-	_, err = buf.Write(b)
-	if err != nil {
+
+	if _, err := buf.Write(b); err != nil {
+		log.Printf("[apply] buffer write error: %v", err)
 		return nil, err
 	}
+
 	timeout := 10 * time.Second
 	future := db.raft.Apply(buf.Bytes(), timeout)
-	if future.Error() != nil {
-		return nil, future.Error()
-	}
-	res := future.Response()
-	if err, ok := res.(error); ok {
+
+	if err := future.Error(); err != nil {
+		log.Printf("[apply] raft apply error: %v", err)
 		return nil, err
 	}
+
+	res := future.Response()
+	if err, ok := res.(error); ok {
+		log.Printf("[apply] raft response error: %v", err)
+		return nil, err
+	}
+
+	log.Printf("[apply] success: response=%v", res)
 	return res, nil
 }
 
@@ -250,6 +259,26 @@ func (db *DistributedStore) Close() error {
 	return db.store.Close()
 }
 
+func isLeader(leaderRaftAddress, serverAddress raft.ServerAddress) bool {
+	leaderAddr := string(leaderRaftAddress)
+	serverAddr := string(serverAddress)
+
+	leaderHost, _, _ := net.SplitHostPort(leaderAddr)
+	localHost, _, _ := net.SplitHostPort(serverAddr)
+	leaderIPs, _ := net.LookupHost(leaderHost)
+	localIPs, _ := net.LookupHost(localHost)
+	fmt.Println(leaderIPs, localIPs)
+
+	for _, ia := range leaderIPs {
+		for _, ib := range localIPs {
+			if ia == ib {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // START: get_servers
 func (db *DistributedStore) GetServers() ([]Server, error) {
 	future := db.raft.GetConfiguration()
@@ -258,10 +287,12 @@ func (db *DistributedStore) GetServers() ([]Server, error) {
 	}
 	var servers []Server
 	for _, server := range future.Configuration().Servers {
+		fmt.Println(db.raft.Leader(), server.Address, "dfdfdfdfdfdf")
+		fmt.Println(db.raft.LeaderWithID())
 		servers = append(servers, Server{
 			Id:       string(server.ID),
 			RpcAddr:  string(server.Address),
-			IsLeader: db.raft.Leader() == server.Address,
+			IsLeader: isLeader(db.raft.Leader(), server.Address),
 		})
 	}
 	return servers, nil
@@ -278,7 +309,9 @@ type fsm struct {
 func (l *fsm) Apply(record *raft.Log) interface{} {
 	buf := record.Data
 	var req api.Record
+
 	err := proto.Unmarshal(buf, &req)
+
 	if err != nil {
 		return err
 	}

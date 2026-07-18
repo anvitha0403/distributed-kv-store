@@ -126,6 +126,8 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.PeerTLSConfig.CertFile = viper.GetString("peer-tls-cert-file")
 	c.cfg.PeerTLSConfig.KeyFile = viper.GetString("peer-tls-key-file")
 	c.cfg.PeerTLSConfig.CAFile = viper.GetString("peer-tls-ca-file")
+	c.cfg.PeerTLSConfig.ServerAddress = viper.GetString("service-name")
+	c.cfg.ServerTLSConfig.ServerAddress = viper.GetString("service-name")
 
 	if c.cfg.ServerTLSConfig.CertFile != "" &&
 		c.cfg.ServerTLSConfig.KeyFile != "" {

@@ -61,7 +61,7 @@ func (s *grpcServer) GetServers(ctx context.Context, req *pb.GetServersRequest) 
 		objectWildcard,
 		OPERATION_GETSERVERS,
 	); err != nil {
-		logger.Warn("Authorization failed for PUT",
+		logger.Warn("Authorization failed for GetServers",
 			zap.String("subject", subject(ctx)),
 			zap.Error(err),
 		)

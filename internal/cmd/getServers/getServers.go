@@ -8,6 +8,7 @@ import (
 
 	api "github.com/anvitha0403/golog/internal/server/api/v1"
 	"github.com/anvitha0403/golog/internal/server/config"
+	loadbalance "github.com/anvitha0403/golog/internal/server/loadbalancer"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -15,6 +16,7 @@ import (
 
 func main() {
 	addr := flag.String("addr", ":8400", "service address")
+
 	flag.Parse()
 
 	peerTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
@@ -28,11 +30,15 @@ func main() {
 		panic(err)
 	}
 	tlsCreds := credentials.NewTLS(peerTLSConfig)
+
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(tlsCreds),
+		grpc.WithDefaultServiceConfig(
+			`{"loadBalancingPolicy":"` + loadbalance.Name + `"}`,
+		),
 	}
 
-	conn, err := grpc.Dial(*addr, opts...)
+	conn, err := grpc.Dial("raft:///"+*addr, opts...)
 	if err != nil {
 		panic(err)
 	}

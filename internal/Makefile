@@ -1,7 +1,7 @@
 # Makefile for distributed-kv-store
 
 IMAGE_REPO = github.com/anvitha0403/distributed-kvstore
-IMAGE_TAG ?= 0.0.10
+IMAGE_TAG ?= 0.1.8
 IMAGE = $(IMAGE_REPO):$(IMAGE_TAG)
 
 CHART_PATH = deploy/kvstore
